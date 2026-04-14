@@ -1,5 +1,7 @@
 # fixed-json
 
+[![Crates.io Version](https://img.shields.io/crates/v/fixed-json)](https://crates.io/crates/fixed-json)
+
 This directory contains `fixed-json`, a Rust implementation of the ([`microjson`](https://gitlab.com/esr/microjson)) library, a
 fixed-storage JSON parser, made by Eric S. Raymond in C.
 
