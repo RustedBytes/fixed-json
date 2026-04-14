@@ -39,6 +39,7 @@ pub enum Error {
 }
 
 impl Error {
+    #[inline]
     pub const fn message(self) -> &'static str {
         match self {
             Error::ObStart => "non-whitespace when expecting object start",
@@ -71,6 +72,7 @@ impl Error {
 }
 
 impl core::fmt::Display for Error {
+    #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.message())
     }
@@ -79,6 +81,7 @@ impl core::fmt::Display for Error {
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
+#[inline]
 pub fn error_string(err: Error) -> &'static str {
     err.message()
 }
@@ -108,6 +111,7 @@ pub enum Target<'a, T> {
 }
 
 impl<T: Copy> Target<'_, T> {
+    #[inline]
     fn set(&mut self, offset: usize, value: T) -> Result<()> {
         match self {
             Target::One(target) if offset == 0 => {
@@ -156,103 +160,127 @@ pub struct Attr<'a> {
 }
 
 impl<'a> Attr<'a> {
+    #[inline]
     pub fn integer(name: &'a str, target: &'a mut i32) -> Self {
         Self::new(name, AttrKind::Integer(TargetI32::One(target)))
     }
 
+    #[inline]
     pub fn integers(name: &'a str, target: &'a mut [i32]) -> Self {
         Self::new(name, AttrKind::Integer(TargetI32::Many(target)))
     }
 
+    #[inline]
     pub fn uinteger(name: &'a str, target: &'a mut u32) -> Self {
         Self::new(name, AttrKind::UInteger(TargetU32::One(target)))
     }
 
+    #[inline]
     pub fn uintegers(name: &'a str, target: &'a mut [u32]) -> Self {
         Self::new(name, AttrKind::UInteger(TargetU32::Many(target)))
     }
 
+    #[inline]
     pub fn short(name: &'a str, target: &'a mut i16) -> Self {
         Self::new(name, AttrKind::Short(TargetI16::One(target)))
     }
 
+    #[inline]
     pub fn shorts(name: &'a str, target: &'a mut [i16]) -> Self {
         Self::new(name, AttrKind::Short(TargetI16::Many(target)))
     }
 
+    #[inline]
     pub fn ushort(name: &'a str, target: &'a mut u16) -> Self {
         Self::new(name, AttrKind::UShort(TargetU16::One(target)))
     }
 
+    #[inline]
     pub fn ushorts(name: &'a str, target: &'a mut [u16]) -> Self {
         Self::new(name, AttrKind::UShort(TargetU16::Many(target)))
     }
 
+    #[inline]
     pub fn real(name: &'a str, target: &'a mut f64) -> Self {
         Self::new(name, AttrKind::Real(TargetF64::One(target)))
     }
 
+    #[inline]
     pub fn reals(name: &'a str, target: &'a mut [f64]) -> Self {
         Self::new(name, AttrKind::Real(TargetF64::Many(target)))
     }
 
+    #[inline]
     pub fn string(name: &'a str, target: &'a mut [u8]) -> Self {
         Self::new(name, AttrKind::String(target))
     }
 
+    #[inline]
     pub fn boolean(name: &'a str, target: &'a mut bool) -> Self {
         Self::new(name, AttrKind::Boolean(TargetBool::One(target)))
     }
 
+    #[inline]
     pub fn booleans(name: &'a str, target: &'a mut [bool]) -> Self {
         Self::new(name, AttrKind::Boolean(TargetBool::Many(target)))
     }
 
+    #[inline]
     pub fn character(name: &'a str, target: &'a mut u8) -> Self {
         Self::new(name, AttrKind::Character(TargetChar::One(target)))
     }
 
+    #[inline]
     pub fn characters(name: &'a str, target: &'a mut [u8]) -> Self {
         Self::new(name, AttrKind::Character(TargetChar::Many(target)))
     }
 
+    #[inline]
     pub fn time(name: &'a str, target: &'a mut f64) -> Self {
         Self::new(name, AttrKind::Time(TargetF64::One(target)))
     }
 
+    #[inline]
     pub fn object(name: &'a str, attrs: &'a mut [Attr<'a>]) -> Self {
         Self::new(name, AttrKind::Object(attrs))
     }
 
+    #[inline]
     pub fn array(name: &'a str, array: Array<'a>) -> Self {
         Self::new(name, AttrKind::Array(array))
     }
 
+    #[inline]
     pub fn check(name: &'a str, expected: &'a str) -> Self {
         let mut attr = Self::new(name, AttrKind::Check(expected));
         attr.default = DefaultValue::Check(expected);
         attr
     }
 
+    #[inline]
     pub fn ignore_any() -> Self {
         Self::new("", AttrKind::Ignore)
     }
 
+    #[inline]
     pub fn with_default(mut self, default: DefaultValue<'a>) -> Self {
         self.default = default;
         self
     }
 
+    #[inline]
     pub fn with_map(mut self, map: &'a [EnumValue<'a>]) -> Self {
         self.map = Some(map);
         self
     }
 
+    #[inline]
     pub fn nodefault(mut self) -> Self {
         self.nodefault = true;
         self
     }
 
+    #[inline]
     fn new(name: &'a str, kind: AttrKind<'a>) -> Self {
         Self {
             name,
@@ -305,10 +333,12 @@ pub enum Array<'a> {
     },
 }
 
+#[inline]
 pub fn read_object(input: &str, attrs: &mut [Attr<'_>]) -> Result<usize> {
     read_object_internal(input, attrs, None, 0)
 }
 
+#[inline]
 pub fn read_array(input: &str, array: &mut Array<'_>) -> Result<usize> {
     read_array_internal(input, array)
 }
@@ -327,6 +357,7 @@ pub fn validate_json(input: &[u8]) -> Result<usize> {
     }
 }
 
+#[inline]
 pub fn cstr(buf: &[u8]) -> &str {
     let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
     core::str::from_utf8(&buf[..len]).unwrap_or("")
@@ -340,6 +371,7 @@ struct JsonValidator<'a> {
 impl JsonValidator<'_> {
     const MAX_DEPTH: usize = 1024;
 
+    #[inline]
     fn parse_value(&mut self, i: usize) -> Result<usize> {
         if i >= self.bytes.len() {
             return Err(Error::BadTrail);
@@ -465,6 +497,7 @@ impl JsonValidator<'_> {
         Err(Error::BadString)
     }
 
+    #[inline]
     fn parse_literal(&self, i: usize, literal: &[u8]) -> Result<usize> {
         if self.bytes[i..].starts_with(literal) {
             Ok(i + literal.len())
@@ -518,6 +551,7 @@ impl JsonValidator<'_> {
         Ok(i)
     }
 
+    #[inline]
     fn skip_ws(&self, mut i: usize) -> usize {
         while i < self.bytes.len() && matches!(self.bytes[i], b' ' | b'\t' | b'\n' | b'\r') {
             i += 1;
@@ -525,6 +559,7 @@ impl JsonValidator<'_> {
         i
     }
 
+    #[inline]
     fn enter(&mut self) -> Result<()> {
         self.depth += 1;
         if self.depth > Self::MAX_DEPTH {
@@ -533,6 +568,7 @@ impl JsonValidator<'_> {
         Ok(())
     }
 
+    #[inline]
     fn leave(&mut self) {
         self.depth -= 1;
     }
@@ -1015,6 +1051,7 @@ fn apply_value(
     }
 }
 
+#[inline]
 fn set_i32(kind: &mut AttrKind<'_>, offset: usize, value: i32) -> Result<()> {
     if let AttrKind::Integer(target) = kind {
         target.set(offset, value)?;
@@ -1022,6 +1059,7 @@ fn set_i32(kind: &mut AttrKind<'_>, offset: usize, value: i32) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn set_u32(kind: &mut AttrKind<'_>, offset: usize, value: u32) -> Result<()> {
     if let AttrKind::UInteger(target) = kind {
         target.set(offset, value)?;
@@ -1029,6 +1067,7 @@ fn set_u32(kind: &mut AttrKind<'_>, offset: usize, value: u32) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn set_i16(kind: &mut AttrKind<'_>, offset: usize, value: i16) -> Result<()> {
     if let AttrKind::Short(target) = kind {
         target.set(offset, value)?;
@@ -1036,6 +1075,7 @@ fn set_i16(kind: &mut AttrKind<'_>, offset: usize, value: i16) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn set_u16(kind: &mut AttrKind<'_>, offset: usize, value: u16) -> Result<()> {
     if let AttrKind::UShort(target) = kind {
         target.set(offset, value)?;
@@ -1043,6 +1083,7 @@ fn set_u16(kind: &mut AttrKind<'_>, offset: usize, value: u16) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn set_f64(kind: &mut AttrKind<'_>, offset: usize, value: f64) -> Result<()> {
     match kind {
         AttrKind::Real(target) | AttrKind::Time(target) => target.set(offset, value)?,
@@ -1051,6 +1092,7 @@ fn set_f64(kind: &mut AttrKind<'_>, offset: usize, value: f64) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn set_bool(kind: &mut AttrKind<'_>, offset: usize, value: bool) -> Result<()> {
     if let AttrKind::Boolean(target) = kind {
         target.set(offset, value)?;
@@ -1058,6 +1100,7 @@ fn set_bool(kind: &mut AttrKind<'_>, offset: usize, value: bool) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn set_char(kind: &mut AttrKind<'_>, offset: usize, value: u8) -> Result<()> {
     if let AttrKind::Character(target) = kind {
         target.set(offset, value)?;
@@ -1065,6 +1108,7 @@ fn set_char(kind: &mut AttrKind<'_>, offset: usize, value: u8) -> Result<()> {
     Ok(())
 }
 
+#[inline]
 fn value_max_len(attr: &Attr<'_>) -> usize {
     match &attr.kind {
         AttrKind::String(buf) => buf.len().saturating_sub(1),
@@ -1075,6 +1119,7 @@ fn value_max_len(attr: &Attr<'_>) -> usize {
     }
 }
 
+#[inline]
 fn array_maxlen(array: &Array<'_>) -> usize {
     match array {
         Array::Strings { store, .. } => store.len(),
@@ -1089,6 +1134,7 @@ fn array_maxlen(array: &Array<'_>) -> usize {
     }
 }
 
+#[inline]
 fn set_array_count(array: &mut Array<'_>, value: usize) {
     match array {
         Array::Strings { count, .. }
@@ -1107,6 +1153,7 @@ fn set_array_count(array: &mut Array<'_>, value: usize) {
     }
 }
 
+#[inline]
 fn skip_ws(bytes: &[u8], mut i: usize) -> usize {
     while i < bytes.len() && is_ws(bytes[i]) {
         i += 1;
@@ -1114,16 +1161,19 @@ fn skip_ws(bytes: &[u8], mut i: usize) -> usize {
     i
 }
 
+#[inline]
 fn is_ws(b: u8) -> bool {
     matches!(b, b' ' | b'\t' | b'\n' | b'\r' | 0x0c | 0x0b)
 }
 
+#[inline]
 fn clear_cbuf(buf: &mut [u8]) {
     for b in buf {
         *b = 0;
     }
 }
 
+#[inline]
 fn copy_cbuf(out: &mut [u8], val: &[u8; JSON_VAL_MAX + 1]) {
     clear_cbuf(out);
     if out.is_empty() {
@@ -1133,18 +1183,22 @@ fn copy_cbuf(out: &mut [u8], val: &[u8; JSON_VAL_MAX + 1]) {
     out[..n].copy_from_slice(&val[..n]);
 }
 
+#[inline]
 fn token_len(token: &[u8]) -> usize {
     token.iter().position(|&b| b == 0).unwrap_or(token.len())
 }
 
+#[inline]
 fn token_str(token: &[u8]) -> Result<&str> {
     core::str::from_utf8(&token[..token_len(token)]).map_err(|_| Error::BadString)
 }
 
+#[inline]
 fn token_eq(token: &[u8], expected: &[u8]) -> bool {
     &token[..token_len(token)] == expected
 }
 
+#[inline]
 fn hex_val(b: u8) -> Option<u8> {
     match b {
         b'0'..=b'9' => Some(b - b'0'),
@@ -1154,16 +1208,19 @@ fn hex_val(b: u8) -> Option<u8> {
     }
 }
 
+#[inline]
 fn parse_i32_at(bytes: &[u8], start: usize) -> Result<(i32, usize)> {
     let end = number_end(bytes, start)?;
     Ok((parse_i32_bytes(&bytes[start..end])?, end))
 }
 
+#[inline]
 fn parse_u32_at(bytes: &[u8], start: usize) -> Result<(u32, usize)> {
     let end = number_end(bytes, start)?;
     Ok((parse_u32_bytes(&bytes[start..end])?, end))
 }
 
+#[inline]
 fn parse_i16_at(bytes: &[u8], start: usize) -> Result<(i16, usize)> {
     let end = number_end(bytes, start)?;
     let v = parse_i64_bytes(&bytes[start..end])?;
@@ -1173,6 +1230,7 @@ fn parse_i16_at(bytes: &[u8], start: usize) -> Result<(i16, usize)> {
     Ok((v as i16, end))
 }
 
+#[inline]
 fn parse_u16_at(bytes: &[u8], start: usize) -> Result<(u16, usize)> {
     let end = number_end(bytes, start)?;
     let v = parse_u64_bytes(&bytes[start..end])?;
@@ -1182,11 +1240,13 @@ fn parse_u16_at(bytes: &[u8], start: usize) -> Result<(u16, usize)> {
     Ok((v as u16, end))
 }
 
+#[inline]
 fn parse_f64_at(bytes: &[u8], start: usize) -> Result<(f64, usize)> {
     let end = number_end(bytes, start)?;
     Ok((parse_f64_bytes(&bytes[start..end])?, end))
 }
 
+#[inline]
 fn parse_bool_at(bytes: &[u8], start: usize) -> Result<(bool, usize)> {
     if bytes[start..].starts_with(b"true") {
         Ok((true, start + 4))
@@ -1235,14 +1295,17 @@ fn number_end(bytes: &[u8], mut i: usize) -> Result<usize> {
     }
 }
 
+#[inline]
 fn parse_i32_token(token: &[u8]) -> Result<i32> {
     parse_i32_bytes(&token[..token_len(token)])
 }
 
+#[inline]
 fn parse_u32_token(token: &[u8]) -> Result<u32> {
     parse_u32_bytes(&token[..token_len(token)])
 }
 
+#[inline]
 fn parse_i16_token(token: &[u8]) -> Result<i16> {
     let v = parse_i64_token(token)?;
     if v < i16::MIN as i64 || v > i16::MAX as i64 {
@@ -1251,6 +1314,7 @@ fn parse_i16_token(token: &[u8]) -> Result<i16> {
     Ok(v as i16)
 }
 
+#[inline]
 fn parse_u16_token(token: &[u8]) -> Result<u16> {
     let v = parse_u64_bytes(&token[..token_len(token)])?;
     if v > u16::MAX as u64 {
@@ -1259,14 +1323,17 @@ fn parse_u16_token(token: &[u8]) -> Result<u16> {
     Ok(v as u16)
 }
 
+#[inline]
 fn parse_i64_token(token: &[u8]) -> Result<i64> {
     parse_i64_bytes(&token[..token_len(token)])
 }
 
+#[inline]
 fn parse_f64_token(token: &[u8]) -> Result<f64> {
     parse_f64_bytes(&token[..token_len(token)])
 }
 
+#[inline]
 fn parse_i32_bytes(bytes: &[u8]) -> Result<i32> {
     let v = parse_i64_bytes(bytes)?;
     if v < i32::MIN as i64 || v > i32::MAX as i64 {
@@ -1275,6 +1342,7 @@ fn parse_i32_bytes(bytes: &[u8]) -> Result<i32> {
     Ok(v as i32)
 }
 
+#[inline]
 fn parse_u32_bytes(bytes: &[u8]) -> Result<u32> {
     let v = parse_u64_bytes(bytes)?;
     if v > u32::MAX as u64 {
@@ -1393,6 +1461,7 @@ fn parse_f64_bytes(bytes: &[u8]) -> Result<f64> {
     Ok(if neg { -value } else { value })
 }
 
+#[inline]
 fn pow10(exp: i32) -> f64 {
     let mut n = if exp < 0 { -exp } else { exp };
     let mut base = 10.0f64;
@@ -1407,11 +1476,13 @@ fn pow10(exp: i32) -> f64 {
     if exp < 0 { 1.0 / result } else { result }
 }
 
+#[inline]
 fn json_number_is_integer(token: &[u8]) -> bool {
     let bytes = &token[..token_len(token)];
     match_json_number(bytes).is_some_and(|is_integer| is_integer)
 }
 
+#[inline]
 fn json_number_is_real(token: &[u8]) -> bool {
     let bytes = &token[..token_len(token)];
     match_json_number(bytes).is_some_and(|is_integer| !is_integer)

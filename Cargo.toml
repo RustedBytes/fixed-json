@@ -1,6 +1,6 @@
 [package]
 name = "fixed-json"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Yehor Smoliakov <egorsmkv@gmail.com>"]
@@ -22,6 +22,14 @@ std = []
 
 [dev-dependencies]
 criterion = "0.7"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = false
+debug-assertions = false
+overflow-checks = false
 
 [[bench]]
 name = "parser"
