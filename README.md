@@ -1,6 +1,6 @@
 # fixed-json
 
-This directory contains `fixed-json`, a Rust implementation of the `microjson` library, a
+This directory contains `fixed-json`, a Rust implementation of the ([`microjson`](https://gitlab.com/esr/microjson)) library, a
 fixed-storage JSON parser, made by Eric S. Raymond in C.
 
 The library is designed for constrained environments:
