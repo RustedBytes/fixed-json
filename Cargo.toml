@@ -1,0 +1,39 @@
+[package]
+name = "fixed-json"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Yehor Smoliakov <egorsmkv@gmail.com>"]
+description = "No-std, no-allocation JSON parsing into caller-owned fixed storage"
+readme = "README.md"
+license = "BSD-2-Clause"
+documentation = "https://docs.rs/fixed-json"
+keywords = ["json", "no-std", "no-alloc", "parser", "embedded"]
+categories = ["no-std", "embedded", "parser-implementations"]
+
+[lib]
+name = "fixed_json"
+path = "src/lib.rs"
+
+[features]
+default = []
+std = []
+
+[dev-dependencies]
+criterion = "0.7"
+
+[[bench]]
+name = "parser"
+harness = false
+
+[[example]]
+name = "example1"
+
+[[example]]
+name = "example2"
+
+[[example]]
+name = "example3"
+
+[[example]]
+name = "example4"
