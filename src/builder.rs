@@ -128,7 +128,7 @@ impl<'input, 'a, const N: usize> ObjectBuilder<'input, 'a, N> {
 
     #[inline]
     pub fn read(mut self) -> Result<usize> {
-        // The first `len` entries are initialized exclusively by `attr`.
+        // SAFETY: `self.attrs` is initialized up to `self.len` by the builder methods, and we only read that prefix.
         let attrs = unsafe {
             slice::from_raw_parts_mut(self.attrs.as_mut_ptr().cast::<Attr<'a>>(), self.len)
         };
@@ -139,7 +139,7 @@ impl<'input, 'a, const N: usize> ObjectBuilder<'input, 'a, N> {
 impl<const N: usize> Drop for ObjectBuilder<'_, '_, N> {
     fn drop(&mut self) {
         for attr in &mut self.attrs[..self.len] {
-            // Match the initialized prefix maintained by `attr`.
+            // SAFETY: `self.attrs` is initialized up to `self.len` by the builder methods, and we only drop that prefix.
             unsafe {
                 ptr::drop_in_place(attr.as_mut_ptr());
             }
