@@ -1,4 +1,4 @@
-use fixed_json::{Array, Attr, error_string, read_object};
+use fixed_json::{Array, Attr, ObjectBuilder, error_string};
 
 const MAXCHANNELS: usize = 72;
 
@@ -17,18 +17,17 @@ fn main() {
             Attr::integers("az", &mut azimuth),
             Attr::booleans("used", &mut usedflags),
         ];
-        let mut json_attrs_sky = [
-            Attr::check("class", "SKY"),
-            Attr::array(
+        ObjectBuilder::<2>::new(&input)
+            .check("class", "SKY")
+            .array(
                 "satellites",
                 Array::Objects {
                     attrs: &mut sat_attrs,
                     maxlen: MAXCHANNELS,
                     count: Some(&mut visible),
                 },
-            ),
-        ];
-        read_object(&input, &mut json_attrs_sky)
+            )
+            .read()
     };
 
     println!("{visible} satellites:");

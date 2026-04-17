@@ -1,4 +1,4 @@
-use fixed_json::{Array, Attr, cstr, error_string, read_object};
+use fixed_json::{Array, ObjectBuilder, cstr, error_string};
 
 const MAXUSERDEVS: usize = 4;
 const PATH_MAX: usize = 4096;
@@ -32,27 +32,23 @@ fn main() {
 
     let mut parse_device = |s: &str, index: usize| {
         let dev = &mut devicelist.list[index];
-        let mut attrs = [
-            Attr::string("path", &mut dev.path),
-            Attr::real("activated", &mut dev.activated),
-        ];
-        read_object(s, &mut attrs)
+        ObjectBuilder::<2>::new(s)
+            .string("path", &mut dev.path)
+            .real("activated", &mut dev.activated)
+            .read()
     };
 
-    let status = {
-        let mut attrs = [
-            Attr::check("class", "DEVICES"),
-            Attr::array(
-                "devices",
-                Array::StructObjects {
-                    maxlen: MAXUSERDEVS,
-                    count: Some(&mut devicelist.ndevices),
-                    parser: &mut parse_device,
-                },
-            ),
-        ];
-        read_object(&input, &mut attrs)
-    };
+    let status = ObjectBuilder::<2>::new(&input)
+        .check("class", "DEVICES")
+        .array(
+            "devices",
+            Array::StructObjects {
+                maxlen: MAXUSERDEVS,
+                count: Some(&mut devicelist.ndevices),
+                parser: &mut parse_device,
+            },
+        )
+        .read();
 
     println!("{} devices:", devicelist.ndevices);
     for dev in &devicelist.list[..devicelist.ndevices] {

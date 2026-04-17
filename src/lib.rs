@@ -3,10 +3,12 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+mod builder;
 mod error;
 mod model;
 mod parser;
 
+pub use builder::ObjectBuilder;
 pub use error::{Error, Result, error_string};
 pub use model::{
     Array, Attr, AttrKind, DefaultValue, EnumValue, JSON_ATTR_MAX, JSON_VAL_MAX, Target,

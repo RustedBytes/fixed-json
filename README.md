@@ -40,24 +40,17 @@ provided.
 ## Basic Usage
 
 ```rust
-use fixed_json::{Attr, read_object};
+use fixed_json::ObjectBuilder;
 
 let mut count = 0;
 let mut flag1 = false;
 let mut flag2 = false;
 
-let end = {
-    let mut attrs = [
-        Attr::integer("count", &mut count),
-        Attr::boolean("flag1", &mut flag1),
-        Attr::boolean("flag2", &mut flag2),
-    ];
-
-    read_object(
-        r#"{"count":23,"flag1":true,"flag2":false}"#,
-        &mut attrs,
-    )?
-};
+let end = ObjectBuilder::<3>::new(r#"{"count":23,"flag1":true,"flag2":false}"#)
+    .integer("count", &mut count)
+    .boolean("flag1", &mut flag1)
+    .boolean("flag2", &mut flag2)
+    .read()?;
 
 assert_eq!(end, 39);
 assert_eq!(count, 23);
@@ -66,8 +59,9 @@ assert!(!flag2);
 # Ok::<(), fixed_json::Error>(())
 ```
 
-Descriptors hold mutable references into the destination storage. Put
-descriptors in a small scope when you want to read the parsed values afterward.
+The const generic parameter is the maximum number of attributes the builder can
+hold. `read_object` with explicit descriptors remains available when you need to
+reuse descriptor arrays or build nested descriptors separately.
 
 ## Fixed String Buffers
 
