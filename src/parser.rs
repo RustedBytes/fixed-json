@@ -282,9 +282,10 @@ fn read_object_internal(
         let first = find_attr(attrs, attr_name).ok_or(Error::BadAttr)?;
 
         i = skip_ws(bytes, i);
-        if i < bytes.len() && bytes[i] == b':' {
-            i += 1;
+        if i >= bytes.len() || bytes[i] != b':' {
+            return Err(Error::BadTrail);
         }
+        i += 1;
         i = skip_ws(bytes, i);
         if i >= bytes.len() {
             return Err(Error::BadTrail);
@@ -1237,6 +1238,9 @@ fn write_i32_token(mut value: i32, out: &mut [u8; JSON_VAL_MAX + 1]) {
 #[cfg(test)]
 #[allow(clippy::drop_non_drop)]
 mod tests {
+    extern crate std;
+
+    use self::std::string::String;
     use super::*;
 
     #[test]
@@ -1812,5 +1816,347 @@ mod tests {
         let err =
             read_object(r#"{"items":[{"name":"one"},{"name":"two"}]}"#, &mut attrs).unwrap_err();
         assert_eq!(err, Error::NoParStr);
+    }
+
+    #[test]
+    fn read_object_requires_colon_and_returns_exact_end_for_empty_object() {
+        let mut value = 0;
+        let mut attrs = [Attr::integer("value", &mut value)];
+
+        assert_eq!(read_object("{}", &mut attrs).unwrap(), 2);
+        assert_eq!(
+            read_object(r#"{"value" 1}"#, &mut attrs).unwrap_err(),
+            Error::BadTrail
+        );
+    }
+
+    #[test]
+    fn read_array_handles_empty_strings_objects_and_trailing_commas() {
+        let mut s0 = [0; 4];
+        let mut count = 99usize;
+        {
+            let mut store: [&mut [u8]; 1] = [&mut s0];
+            let mut arr = Array::Strings {
+                store: &mut store,
+                count: Some(&mut count),
+            };
+            assert_eq!(read_array("[]", &mut arr).unwrap(), 2);
+            assert_eq!(count, 0);
+        }
+
+        let mut child_value = 0;
+        let mut child_attrs = [Attr::integer("value", &mut child_value)];
+        let mut obj_count = 0usize;
+        let mut arr = Array::Objects {
+            attrs: &mut child_attrs,
+            maxlen: 1,
+            count: Some(&mut obj_count),
+        };
+        assert_eq!(read_array(r#"[{"value":7}]"#, &mut arr).unwrap(), 13);
+        drop(arr);
+        assert_eq!(obj_count, 1);
+        assert_eq!(child_value, 7);
+
+        let mut s1 = [0; 4];
+        let mut s2 = [0; 4];
+        {
+            let mut store: [&mut [u8]; 2] = [&mut s1, &mut s2];
+            let mut arr = Array::Strings {
+                store: &mut store,
+                count: None,
+            };
+            assert_eq!(
+                read_array(r#"["x",]"#, &mut arr).unwrap_err(),
+                Error::BadString
+            );
+        }
+    }
+
+    #[test]
+    fn helper_parsers_cover_exact_boundaries_and_terminators() {
+        let bytes = br#"name""#;
+        let mut i = 0usize;
+        let mut attr = [0u8; JSON_ATTR_MAX + 1];
+        assert_eq!(parse_attr_name(bytes, &mut i, &mut attr).unwrap(), 4);
+        assert_eq!(&attr[..4], b"name");
+
+        let mut long_attr = [0u8; JSON_ATTR_MAX + 1];
+        let mut i = 0usize;
+        let long_name = [b'a'; JSON_ATTR_MAX + 2];
+        assert_eq!(
+            parse_attr_name(&long_name, &mut i, &mut long_attr).unwrap_err(),
+            Error::AttrLen
+        );
+
+        let mut string_out = [b'!'; 3];
+        let mut i = 0usize;
+        assert_eq!(
+            parse_string_value(br#"ab""#, &mut i, &mut string_out, 2).unwrap(),
+            2
+        );
+        assert_eq!(&string_out, b"ab\0");
+
+        let mut string_out = [0; 2];
+        let mut i = 0usize;
+        assert_eq!(
+            parse_string_value(br#"abc""#, &mut i, &mut string_out, 8).unwrap_err(),
+            Error::StrLong
+        );
+
+        let mut string_out = [0; 8];
+        let mut i = 0usize;
+        assert_eq!(
+            parse_string_value(br#"\u0041""#, &mut i, &mut string_out, 7).unwrap(),
+            1
+        );
+        assert_eq!(string_out[0], b'A');
+
+        let mut string_out = [0; 8];
+        let mut i = 0usize;
+        assert_eq!(
+            parse_string_value(br#"\u0Z41""#, &mut i, &mut string_out, 7).unwrap_err(),
+            Error::BadString
+        );
+
+        let mut token = [0u8; JSON_VAL_MAX + 1];
+        let mut i = 0usize;
+        assert_eq!(parse_token_value(b"true]", &mut i, &mut token).unwrap(), 4);
+        assert_eq!(token_str(&token).unwrap(), "true");
+        assert_eq!(i, 4);
+    }
+
+    #[test]
+    fn selection_and_string_helpers_use_expected_matching_rules() {
+        let mut matched = 0;
+        let mut ignored = false;
+        let attrs = [
+            Attr::integer("value", &mut matched),
+            Attr::ignore_any(),
+            Attr::boolean("flag", &mut ignored),
+        ];
+        assert_eq!(find_attr(&attrs, "value"), Some(0));
+        assert_eq!(find_attr(&attrs, "unknown"), Some(1));
+        drop(attrs);
+
+        let mut exact = 0;
+        let mut duplicate_real = 0.0;
+        let attrs = [
+            Attr::integer("value", &mut exact),
+            Attr::real("value", &mut duplicate_real),
+        ];
+        let mut val = [0u8; JSON_VAL_MAX + 1];
+        val[0] = b'7';
+        assert_eq!(select_attr(&attrs, 0, "value", &val, false).unwrap(), 0);
+        drop(attrs);
+
+        let mut out = [b'X'; 4];
+        let mut val = [0u8; JSON_VAL_MAX + 1];
+        val[..5].copy_from_slice(b"abcd\0");
+        copy_cbuf(&mut out, &val);
+        assert_eq!(&out, b"abc\0");
+
+        assert_eq!(hex_val(b'0'), Some(0));
+        assert_eq!(hex_val(b'9'), Some(9));
+        assert_eq!(hex_val(b'a'), Some(10));
+        assert_eq!(hex_val(b'f'), Some(15));
+        assert_eq!(hex_val(b'A'), Some(10));
+        assert_eq!(hex_val(b'F'), Some(15));
+        assert_eq!(hex_val(b'g'), None);
+    }
+
+    #[test]
+    fn length_and_parallel_string_rules_are_enforced() {
+        let mut buf = [0; 5];
+        let attr = Attr::string("name", &mut buf);
+        assert_eq!(value_max_len(&attr), 4);
+
+        let attr = Attr::check("class", "TPV");
+        assert_eq!(value_max_len(&attr), 3);
+
+        let mut time = 0.0;
+        let attr = Attr::time("ts", &mut time);
+        assert_eq!(value_max_len(&attr), JSON_VAL_MAX);
+
+        const MAP: &[EnumValue<'_>] = &[EnumValue {
+            name: "ON",
+            value: 1,
+        }];
+        let mut mapped = 0;
+        let attr = Attr::integer("mode", &mut mapped).with_map(MAP);
+        assert_eq!(value_max_len(&attr), JSON_VAL_MAX);
+
+        let mut text = [0; 8];
+        let mut attr = Attr::string("name", &mut text);
+        let mut val = [0u8; JSON_VAL_MAX + 1];
+        val[..4].copy_from_slice(b"abc\0");
+        apply_value(&mut attr, Some(false), 0, &val, true).unwrap();
+        assert_eq!(cstr(&text), "abc");
+
+        let mut text = [0; 8];
+        let mut attr = Attr::string("name", &mut text);
+        assert_eq!(
+            apply_value(&mut attr, Some(false), 1, &val, true).unwrap_err(),
+            Error::NoParStr
+        );
+    }
+
+    #[test]
+    fn validate_json_enforces_depth_limit_and_balances_nesting() {
+        let mut just_ok = String::new();
+        just_ok.push_str(&"[".repeat(1024));
+        just_ok.push('0');
+        just_ok.push_str(&"]".repeat(1024));
+
+        let mut too_deep = String::new();
+        too_deep.push_str(&"[".repeat(1025));
+        too_deep.push('0');
+        too_deep.push_str(&"]".repeat(1025));
+
+        let mut sibling_nests = String::new();
+        sibling_nests.push('[');
+        sibling_nests.push_str(&"[".repeat(600));
+        sibling_nests.push('0');
+        sibling_nests.push_str(&"]".repeat(600));
+        sibling_nests.push(',');
+        sibling_nests.push_str(&"[".repeat(600));
+        sibling_nests.push('0');
+        sibling_nests.push_str(&"]".repeat(600));
+        sibling_nests.push(']');
+
+        assert_eq!(validate_json(just_ok.as_bytes()).unwrap(), just_ok.len());
+        assert_eq!(
+            validate_json(too_deep.as_bytes()).unwrap_err(),
+            Error::SubTooLong
+        );
+        assert_eq!(
+            validate_json(sibling_nests.as_bytes()).unwrap(),
+            sibling_nests.len()
+        );
+    }
+
+    #[test]
+    fn validator_number_parser_rejects_invalid_forms() {
+        let cases = [
+            b"01".as_slice(),
+            b"1.".as_slice(),
+            b"1e".as_slice(),
+            b"-".as_slice(),
+        ];
+
+        for bytes in cases {
+            let validator = JsonValidator { bytes, depth: 0 };
+            assert_eq!(validator.parse_number(0).unwrap_err(), Error::BadNum);
+        }
+
+        let validator = JsonValidator {
+            bytes: b"-12.5e+3]",
+            depth: 0,
+        };
+        assert_eq!(validator.parse_number(0).unwrap(), 8);
+    }
+
+    #[test]
+    fn validator_skip_ws_and_parse_string_return_exact_offsets() {
+        let validator = JsonValidator {
+            bytes: b" \t\n\rx",
+            depth: 0,
+        };
+        assert_eq!(validator.skip_ws(0), 4);
+
+        let validator = JsonValidator {
+            bytes: br#""hi\n\u0041\"!"x"#,
+            depth: 0,
+        };
+        assert_eq!(validator.parse_string(0).unwrap(), 15);
+    }
+
+    #[test]
+    fn repeated_attribute_names_select_matching_types() {
+        let mut int_value = 0;
+        let mut real_value = 0.0;
+        {
+            let mut flag = false;
+            let mut attrs = [
+                Attr::integer("value", &mut int_value),
+                Attr::real("value", &mut real_value),
+                Attr::boolean("value", &mut flag),
+            ];
+
+            read_object(r#"{"value":1.5}"#, &mut attrs).unwrap();
+            drop(attrs);
+            assert!(!flag);
+        }
+        assert_eq!(int_value, 0);
+        assert_eq!(real_value, 1.5);
+
+        let mut flag = false;
+        let mut attrs = [
+            Attr::integer("value", &mut int_value),
+            Attr::real("value", &mut real_value),
+            Attr::boolean("value", &mut flag),
+        ];
+        read_object(r#"{"value":true}"#, &mut attrs).unwrap();
+        drop(attrs);
+        assert!(flag);
+    }
+
+    #[test]
+    fn number_helpers_classify_and_bound_values() {
+        assert!(json_number_is_integer(b"12"));
+        assert!(json_number_is_integer(b"-0"));
+        assert!(!json_number_is_integer(b"12.0"));
+        assert!(json_number_is_real(b"12.0"));
+        assert!(json_number_is_real(b"12e3"));
+        assert!(!json_number_is_real(b"12"));
+        assert_eq!(match_json_number(b""), None);
+        assert_eq!(match_json_number(b"01"), None);
+        assert_eq!(match_json_number(b"1e"), None);
+        assert_eq!(match_json_number(b"-12"), Some(true));
+        assert_eq!(match_json_number(b"-12.5e+3"), Some(false));
+
+        assert_eq!(number_end(b"-12.5e+3]", 0).unwrap(), 8);
+        assert_eq!(number_end(b"-.5", 0).unwrap(), 3);
+        assert_eq!(number_end(b"1e]", 0).unwrap_err(), Error::BadNum);
+
+        assert_eq!(parse_i16_token(b"-32768").unwrap(), i16::MIN);
+        assert_eq!(parse_i16_token(b"32768").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_i16_at(b"-32768]", 0).unwrap(), (i16::MIN, 6));
+        assert_eq!(parse_i16_at(b"32768]", 0).unwrap_err(), Error::BadNum);
+        assert_eq!(parse_u16_token(b"65535").unwrap(), u16::MAX);
+        assert_eq!(parse_u16_token(b"65536").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_i64_token(b"-900").unwrap(), -900);
+        assert_eq!(parse_i64_token(b"+1").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_i32_bytes(b"2147483647").unwrap(), i32::MAX);
+        assert_eq!(parse_i32_bytes(b"-2147483648").unwrap(), i32::MIN);
+        assert_eq!(parse_i32_bytes(b"2147483648").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_u64_bytes(b"").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_u64_bytes(b"+1").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_u64_bytes(b"-1").unwrap_err(), Error::BadNum);
+    }
+
+    #[test]
+    fn float_parser_and_pow10_handle_sign_fraction_and_exponent() {
+        assert_eq!(parse_f64_bytes(b"0").unwrap(), 0.0);
+        assert_eq!(parse_f64_bytes(b"-0.25").unwrap(), -0.25);
+        assert_eq!(parse_f64_bytes(b"12.5e-1").unwrap(), 1.25);
+        assert_eq!(parse_f64_bytes(b"01").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_f64_bytes(b"1e").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_f64_bytes(b"10x").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_f64_bytes(b"1e400").unwrap().is_infinite(), true);
+        assert_eq!(pow10(3), 1000.0);
+        assert_eq!(pow10(0), 1.0);
+        assert_eq!(pow10(-3), 0.001);
+    }
+
+    #[test]
+    fn write_i32_token_formats_negative_and_zero_values() {
+        let mut out = [b'X'; JSON_VAL_MAX + 1];
+
+        write_i32_token(0, &mut out);
+        assert_eq!(token_str(&out).unwrap(), "0");
+
+        write_i32_token(-12345, &mut out);
+        assert_eq!(token_str(&out).unwrap(), "-12345");
+        assert_eq!(out[6], 0);
     }
 }
