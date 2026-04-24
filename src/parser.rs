@@ -1880,6 +1880,13 @@ mod tests {
         assert_eq!(parse_attr_name(bytes, &mut i, &mut attr).unwrap(), 4);
         assert_eq!(&attr[..4], b"name");
 
+        let mut i = bytes.len();
+        let mut attr = [0u8; JSON_ATTR_MAX + 1];
+        assert_eq!(
+            parse_attr_name(bytes, &mut i, &mut attr).unwrap_err(),
+            Error::BadString
+        );
+
         let mut long_attr = [0u8; JSON_ATTR_MAX + 1];
         let mut i = 0usize;
         let long_name = [b'a'; JSON_ATTR_MAX + 2];
@@ -1923,6 +1930,11 @@ mod tests {
         assert_eq!(parse_token_value(b"true]", &mut i, &mut token).unwrap(), 4);
         assert_eq!(token_str(&token).unwrap(), "true");
         assert_eq!(i, 4);
+
+        let mut token = [0u8; JSON_VAL_MAX + 1];
+        let mut i = 4usize;
+        assert_eq!(parse_token_value(b"true", &mut i, &mut token).unwrap(), 0);
+        assert_eq!(token[0], 0);
     }
 
     #[test]
@@ -1947,6 +1959,15 @@ mod tests {
         let mut val = [0u8; JSON_VAL_MAX + 1];
         val[0] = b'7';
         assert_eq!(select_attr(&attrs, 0, "value", &val, false).unwrap(), 0);
+        drop(attrs);
+
+        let mut flag = false;
+        let attrs = [Attr::boolean("flag", &mut flag)];
+        let mut val = [0u8; JSON_VAL_MAX + 1];
+        val[..5].copy_from_slice(b"true\0");
+        assert!(value_fits_attr(&attrs[0], &val, false));
+        val[..6].copy_from_slice(b"false\0");
+        assert!(value_fits_attr(&attrs[0], &val, false));
         drop(attrs);
 
         let mut out = [b'X'; 4];
@@ -1996,6 +2017,19 @@ mod tests {
         let mut attr = Attr::string("name", &mut text);
         assert_eq!(
             apply_value(&mut attr, Some(false), 1, &val, true).unwrap_err(),
+            Error::NoParStr
+        );
+
+        let mut text = [b'X'; 4];
+        let mut attrs = [Attr::string("name", &mut text)];
+        apply_defaults(&mut attrs, Some(false), 0).unwrap();
+        drop(attrs);
+        assert_eq!(&text, b"\0\0\0\0");
+
+        let mut text = [b'X'; 4];
+        let mut attrs = [Attr::string("name", &mut text)];
+        assert_eq!(
+            apply_defaults(&mut attrs, Some(false), 1).unwrap_err(),
             Error::NoParStr
         );
     }
@@ -2109,22 +2143,33 @@ mod tests {
         assert!(json_number_is_real(b"12e3"));
         assert!(!json_number_is_real(b"12"));
         assert_eq!(match_json_number(b""), None);
+        assert_eq!(match_json_number(b"-"), None);
+        assert_eq!(match_json_number(b"0"), Some(true));
         assert_eq!(match_json_number(b"01"), None);
         assert_eq!(match_json_number(b"1e"), None);
+        assert_eq!(match_json_number(b"1e+"), None);
         assert_eq!(match_json_number(b"-12"), Some(true));
         assert_eq!(match_json_number(b"-12.5e+3"), Some(false));
 
+        assert_eq!(number_end(b"7", 0).unwrap(), 1);
+        assert_eq!(number_end(b"7.5", 0).unwrap(), 3);
+        assert_eq!(number_end(b"7e2", 0).unwrap(), 3);
         assert_eq!(number_end(b"-12.5e+3]", 0).unwrap(), 8);
         assert_eq!(number_end(b"-.5", 0).unwrap(), 3);
+        assert_eq!(number_end(b"-", 0).unwrap_err(), Error::BadNum);
         assert_eq!(number_end(b"1e]", 0).unwrap_err(), Error::BadNum);
 
+        assert_eq!(parse_i16_token(b"32767").unwrap(), i16::MAX);
         assert_eq!(parse_i16_token(b"-32768").unwrap(), i16::MIN);
+        assert_eq!(parse_i16_token(b"-32769").unwrap_err(), Error::BadNum);
         assert_eq!(parse_i16_token(b"32768").unwrap_err(), Error::BadNum);
         assert_eq!(parse_i16_at(b"-32768]", 0).unwrap(), (i16::MIN, 6));
         assert_eq!(parse_i16_at(b"32768]", 0).unwrap_err(), Error::BadNum);
         assert_eq!(parse_u16_token(b"65535").unwrap(), u16::MAX);
         assert_eq!(parse_u16_token(b"65536").unwrap_err(), Error::BadNum);
         assert_eq!(parse_i64_token(b"-900").unwrap(), -900);
+        assert_eq!(parse_i64_bytes(b"").unwrap_err(), Error::BadNum);
+        assert_eq!(parse_i64_bytes(b"-").unwrap_err(), Error::BadNum);
         assert_eq!(parse_i64_token(b"+1").unwrap_err(), Error::BadNum);
         assert_eq!(parse_i32_bytes(b"2147483647").unwrap(), i32::MAX);
         assert_eq!(parse_i32_bytes(b"-2147483648").unwrap(), i32::MIN);
@@ -2139,6 +2184,7 @@ mod tests {
         assert_eq!(parse_f64_bytes(b"0").unwrap(), 0.0);
         assert_eq!(parse_f64_bytes(b"-0.25").unwrap(), -0.25);
         assert_eq!(parse_f64_bytes(b"12.5e-1").unwrap(), 1.25);
+        assert_eq!(parse_f64_bytes(b"0.5").unwrap(), 0.5);
         assert_eq!(parse_f64_bytes(b"01").unwrap_err(), Error::BadNum);
         assert_eq!(parse_f64_bytes(b"1e").unwrap_err(), Error::BadNum);
         assert_eq!(parse_f64_bytes(b"10x").unwrap_err(), Error::BadNum);
