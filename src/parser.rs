@@ -1870,6 +1870,20 @@ mod tests {
                 Error::BadString
             );
         }
+
+        let mut ints = [0; 1];
+        let mut arr = Array::Integers {
+            store: &mut ints,
+            count: None,
+        };
+        assert_eq!(read_array("[", &mut arr).unwrap_err(), Error::BadNum);
+
+        let mut ints = [0; 1];
+        let mut arr = Array::Integers {
+            store: &mut ints,
+            count: None,
+        };
+        assert_eq!(read_array("[1", &mut arr).unwrap_err(), Error::BadSubTrail);
     }
 
     #[test]
@@ -1925,6 +1939,29 @@ mod tests {
             Error::BadString
         );
 
+        let mut string_out = [0; 2];
+        let mut i = 2usize;
+        assert_eq!(
+            parse_string_value(br#"x""#, &mut i, &mut string_out, 1).unwrap_err(),
+            Error::BadString
+        );
+
+        let mut string_out = [b'!'; 2];
+        let mut i = 0usize;
+        assert_eq!(
+            parse_string_value(br#"a""#, &mut i, &mut string_out, 8).unwrap(),
+            1
+        );
+        assert_eq!(&string_out, b"a\0");
+
+        let mut string_out = [b'!'; 1];
+        let mut i = 0usize;
+        assert_eq!(
+            parse_string_value(br#"""#, &mut i, &mut string_out, 0).unwrap(),
+            0
+        );
+        assert_eq!(string_out[0], 0);
+
         let mut token = [0u8; JSON_VAL_MAX + 1];
         let mut i = 0usize;
         assert_eq!(parse_token_value(b"true]", &mut i, &mut token).unwrap(), 4);
@@ -1968,6 +2005,19 @@ mod tests {
         assert!(value_fits_attr(&attrs[0], &val, false));
         val[..6].copy_from_slice(b"false\0");
         assert!(value_fits_attr(&attrs[0], &val, false));
+        drop(attrs);
+
+        let mut unnamed = 0;
+        let mut ignored = false;
+        let mut hit = 0;
+        let attrs = [
+            Attr::integer("", &mut unnamed),
+            Attr::ignore_any(),
+            Attr::integer("hit", &mut hit),
+            Attr::boolean("flag", &mut ignored),
+        ];
+        assert_eq!(find_attr(&attrs, "missing"), Some(1));
+        assert_eq!(find_attr(&attrs, "hit"), Some(2));
         drop(attrs);
 
         let mut out = [b'X'; 4];
@@ -2087,6 +2137,18 @@ mod tests {
             depth: 0,
         };
         assert_eq!(validator.parse_number(0).unwrap(), 8);
+
+        let validator = JsonValidator {
+            bytes: b"0",
+            depth: 0,
+        };
+        assert_eq!(validator.parse_number(0).unwrap(), 1);
+
+        let validator = JsonValidator {
+            bytes: b"",
+            depth: 0,
+        };
+        assert_eq!(validator.parse_number(0).unwrap_err(), Error::BadNum);
     }
 
     #[test]
@@ -2147,6 +2209,7 @@ mod tests {
         assert_eq!(match_json_number(b"0"), Some(true));
         assert_eq!(match_json_number(b"01"), None);
         assert_eq!(match_json_number(b"1e"), None);
+        assert_eq!(match_json_number(b"1."), None);
         assert_eq!(match_json_number(b"1e+"), None);
         assert_eq!(match_json_number(b"-12"), Some(true));
         assert_eq!(match_json_number(b"-12.5e+3"), Some(false));
