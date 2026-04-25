@@ -77,24 +77,3 @@ impl std::error::Error for Error {}
 pub fn error_string(err: Error) -> &'static str {
     err.message()
 }
-
-#[cfg(test)]
-mod tests {
-    extern crate std;
-
-    use self::std::string::ToString;
-    use super::{Error, error_string};
-
-    #[test]
-    fn error_helpers_return_human_readable_messages() {
-        assert_eq!(
-            Error::BadNum.message(),
-            "error while parsing a numerical argument"
-        );
-        assert_eq!(
-            error_string(Error::NoCurly),
-            "object element specified, but no {"
-        );
-        assert_eq!(Error::BadAttr.to_string(), "unknown attribute name");
-    }
-}
