@@ -1,0 +1,35 @@
+[package]
+name = "fixed-json-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.fixed-json]
+path = ".."
+
+[[bin]]
+name = "validate_json"
+path = "fuzz_targets/validate_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "read_object"
+path = "fuzz_targets/read_object.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "read_array"
+path = "fuzz_targets/read_array.rs"
+test = false
+doc = false
+bench = false

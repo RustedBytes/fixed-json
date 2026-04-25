@@ -180,6 +180,21 @@ Expectation mapping:
 `validate_json` accepts arbitrary JSON syntax. The descriptor parser remains
 stricter by design: application parsing requires known shapes and fixed storage.
 
+## Fuzzing
+
+The repository includes `cargo-fuzz` targets for syntax validation and the two
+descriptor-driven parsers:
+
+```sh
+cargo +nightly fuzz run validate_json
+cargo +nightly fuzz run read_object
+cargo +nightly fuzz run read_array
+```
+
+The parser targets use fixed-capacity descriptor layouts with nested objects,
+integer arrays, string arrays, object arrays, and struct-object callbacks so
+coverage is not limited to the raw validator.
+
 ## Benchmarks
 
 Criterion benchmarks are available for common parser paths:
