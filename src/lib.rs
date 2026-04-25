@@ -8,6 +8,7 @@ mod error;
 mod model;
 mod number;
 mod parser;
+mod serializer;
 mod validator;
 
 pub use builder::ObjectBuilder;
@@ -17,4 +18,5 @@ pub use model::{
     TargetBool, TargetChar, TargetF64, TargetI16, TargetI32, TargetU16, TargetU32,
 };
 pub use parser::{cstr, read_array, read_object};
+pub use serializer::JsonSerializer;
 pub use validator::validate_json;

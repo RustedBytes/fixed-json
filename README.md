@@ -25,11 +25,13 @@ The primary entry points are:
 ```rust
 fixed_json::read_object(input, attrs)
 fixed_json::read_array(input, array)
+fixed_json::JsonSerializer
 fixed_json::validate_json(bytes)
 ```
 
 `read_object` and `read_array` parse into caller-provided descriptors and
-storage. `validate_json` is a no-allocation JSON syntax validator used by the
+storage. `JsonSerializer` writes JSON into caller-provided output storage.
+`validate_json` is a no-allocation JSON syntax validator used by the
 JSONTestSuite integration tests.
 
 Errors are returned as `fixed_json::Error`, which implements `Display`.
@@ -112,6 +114,39 @@ Supported array element types include integers, unsigned integers, shorts,
 unsigned shorts, reals, booleans, strings, object arrays, and struct-object
 arrays through a callback.
 
+## Serialization
+
+`JsonSerializer` writes JSON into caller-owned fixed storage and uses a
+const-generic stack for nested arrays and objects:
+
+```rust
+use fixed_json::JsonSerializer;
+
+let mut out = [0u8; 96];
+let mut json = JsonSerializer::<4>::new(&mut out);
+
+json.begin_object()?;
+json.key("class")?;
+json.string("DEVICE")?;
+json.key("count")?;
+json.u32(2)?;
+json.key("flags")?;
+json.begin_array()?;
+json.bool(true)?;
+json.bool(false)?;
+json.end_array()?;
+json.end_object()?;
+
+assert_eq!(
+    json.finish()?,
+    r#"{"class":"DEVICE","count":2,"flags":[true,false]}"#
+);
+# Ok::<(), fixed_json::Error>(())
+```
+
+If the output buffer is too small, serialization returns `Error::WriteLong`.
+If nesting exceeds `DEPTH`, it returns `Error::NestTooDeep`.
+
 ## Defaults, Checks, and Enum Maps
 
 Attributes can be configured fluently:
@@ -152,6 +187,8 @@ cargo run --example example1 -- '{"count":23,"flag1":true,"flag2":false}'
 cargo run --example example2 -- '{"class":"SKY","satellites":[{"PRN":10,"el":45,"az":196,"used":true}]}'
 cargo run --example example3 -- '{"class":"DEVICES","devices":[{"path":"/dev/ttyUSB0","activated":1411468340}]}'
 cargo run --example example4 -- '{"flag1":true} {"flag1":0,"arr1":[10,20]}'
+cargo run --example serialize_basic
+cargo run --example serialize_nested
 ```
 
 ## Tests
@@ -234,6 +271,7 @@ Rust API:
 - arrays are fixed-capacity
 - application-level arrays are homogeneous
 - no heap allocation is used by the library
+- serialization writes into caller-provided byte buffers
 - strings are written into byte buffers and can be read with `cstr`
 
 Use `validate_json` when you need syntax validation of arbitrary JSON. Use

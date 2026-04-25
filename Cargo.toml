@@ -46,3 +46,9 @@ name = "example3"
 
 [[example]]
 name = "example4"
+
+[[example]]
+name = "serialize_basic"
+
+[[example]]
+name = "serialize_nested"

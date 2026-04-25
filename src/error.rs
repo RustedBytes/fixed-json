@@ -28,6 +28,10 @@ pub enum Error {
     NullPtr = 23,
     NoCurly = 24,
     Empty = 25,
+    WriteLong = 26,
+    NestTooDeep = 27,
+    NestMismatch = 28,
+    BadSerialize = 29,
 }
 
 impl Error {
@@ -59,6 +63,10 @@ impl Error {
             Error::NullPtr => "unexpected null value or attribute pointer",
             Error::NoCurly => "object element specified, but no {",
             Error::Empty => "input was empty or white-space only",
+            Error::WriteLong => "JSON output buffer too small",
+            Error::NestTooDeep => "JSON nesting limit exceeded",
+            Error::NestMismatch => "JSON serializer nesting mismatch",
+            Error::BadSerialize => "invalid JSON serializer call sequence",
         }
     }
 }
