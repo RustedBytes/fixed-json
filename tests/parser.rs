@@ -1034,7 +1034,7 @@ mod parser {
             assert_eq!(parse_f64_bytes(b"01").unwrap_err(), Error::BadNum);
             assert_eq!(parse_f64_bytes(b"1e").unwrap_err(), Error::BadNum);
             assert_eq!(parse_f64_bytes(b"10x").unwrap_err(), Error::BadNum);
-            assert_eq!(parse_f64_bytes(b"1e400").unwrap().is_infinite(), true);
+            assert!(parse_f64_bytes(b"1e400").unwrap().is_infinite());
             assert_eq!(pow10(3), 1000.0);
             assert_eq!(pow10(0), 1.0);
             assert_eq!(pow10(-3), 0.001);
