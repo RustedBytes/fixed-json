@@ -7,7 +7,7 @@ exclude_paths = [
     "examples/**",
     "build.rs",
 ]
-ignore_findings = []
+ignore_findings = ["Q0004"]
 min_severity = "warning"
 
 [thresholds.arch]

@@ -2,6 +2,14 @@ use core::fmt::{self, Write};
 
 use crate::{Error, Result};
 
+macro_rules! integer_writer {
+    ($name:ident, $ty:ty) => {
+        pub fn $name(&mut self, value: $ty) -> Result<()> {
+            write_display(self, value)
+        }
+    };
+}
+
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum FrameKind {
     Object,
@@ -91,208 +99,219 @@ impl<'a, const DEPTH: usize> JsonSerializer<'a, DEPTH> {
     }
 
     pub fn begin_object(&mut self) -> Result<()> {
-        self.begin_container(FrameKind::Object, b'{')
+        begin_container(self, FrameKind::Object, b'{')
     }
 
     pub fn end_object(&mut self) -> Result<()> {
-        self.end_container(FrameKind::Object, b'}')
+        end_container(self, FrameKind::Object, b'}')
     }
 
     pub fn begin_array(&mut self) -> Result<()> {
-        self.begin_container(FrameKind::Array, b'[')
+        begin_container(self, FrameKind::Array, b'[')
     }
 
     pub fn end_array(&mut self) -> Result<()> {
-        self.end_container(FrameKind::Array, b']')
+        end_container(self, FrameKind::Array, b']')
     }
 
     pub fn key(&mut self, key: &str) -> Result<()> {
-        let frame = self.current_frame_mut()?;
+        let frame = current_frame_mut(self)?;
         if frame.kind != FrameKind::Object || frame.expecting_value {
             return Err(Error::BadSerialize);
         }
         if !frame.first {
-            self.write_byte(b',')?;
+            write_byte(self, b',')?;
         }
-        self.current_frame_mut()?.first = false;
-        self.write_quoted(key)?;
-        self.write_byte(b':')?;
-        self.current_frame_mut()?.expecting_value = true;
+        current_frame_mut(self)?.first = false;
+        write_quoted(self, key)?;
+        write_byte(self, b':')?;
+        current_frame_mut(self)?.expecting_value = true;
         Ok(())
     }
 
     pub fn null(&mut self) -> Result<()> {
-        self.write_value_str("null")
+        write_value_str(self, "null")
     }
 
     pub fn bool(&mut self, value: bool) -> Result<()> {
-        self.write_value_str(if value { "true" } else { "false" })
+        write_value_str(self, if value { "true" } else { "false" })
     }
 
     pub fn string(&mut self, value: &str) -> Result<()> {
-        self.before_value()?;
-        self.write_quoted(value)
+        before_value(self)?;
+        write_quoted(self, value)
     }
 
-    pub fn i16(&mut self, value: i16) -> Result<()> {
-        self.write_display(value)
-    }
-
-    pub fn u16(&mut self, value: u16) -> Result<()> {
-        self.write_display(value)
-    }
-
-    pub fn i32(&mut self, value: i32) -> Result<()> {
-        self.write_display(value)
-    }
-
-    pub fn u32(&mut self, value: u32) -> Result<()> {
-        self.write_display(value)
-    }
-
-    pub fn i64(&mut self, value: i64) -> Result<()> {
-        self.write_display(value)
-    }
-
-    pub fn u64(&mut self, value: u64) -> Result<()> {
-        self.write_display(value)
-    }
+    integer_writer!(i16, i16);
+    integer_writer!(u16, u16);
+    integer_writer!(i32, i32);
+    integer_writer!(u32, u32);
+    integer_writer!(i64, i64);
+    integer_writer!(u64, u64);
 
     pub fn f64(&mut self, value: f64) -> Result<()> {
         if !value.is_finite() {
             return Err(Error::BadNum);
         }
-        self.write_display(value)
+        write_display(self, value)
     }
 
     pub fn raw_number(&mut self, number: &str) -> Result<()> {
         if !json_number(number.as_bytes()) {
             return Err(Error::BadNum);
         }
-        self.write_value_str(number)
+        write_value_str(self, number)
+    }
+}
+
+fn begin_container<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    kind: FrameKind,
+    open: u8,
+) -> Result<()> {
+    if serializer.depth == DEPTH {
+        return Err(Error::NestTooDeep);
+    }
+    before_value(serializer)?;
+    write_byte(serializer, open)?;
+    serializer.stack[serializer.depth] = Frame::new(kind);
+    serializer.depth += 1;
+    Ok(())
+}
+
+fn end_container<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    kind: FrameKind,
+    close: u8,
+) -> Result<()> {
+    if serializer.depth == 0 {
+        return Err(Error::NestMismatch);
+    }
+    let frame = serializer.stack[serializer.depth - 1];
+    if frame.kind != kind || frame.expecting_value {
+        return Err(Error::NestMismatch);
+    }
+    serializer.depth -= 1;
+    write_byte(serializer, close)
+}
+
+fn before_value<const DEPTH: usize>(serializer: &mut JsonSerializer<'_, DEPTH>) -> Result<()> {
+    if serializer.depth == 0 {
+        if serializer.root_written {
+            return Err(Error::BadSerialize);
+        }
+        serializer.root_written = true;
+        return Ok(());
     }
 
-    fn begin_container(&mut self, kind: FrameKind, open: u8) -> Result<()> {
-        if self.depth == DEPTH {
-            return Err(Error::NestTooDeep);
-        }
-        self.before_value()?;
-        self.write_byte(open)?;
-        self.stack[self.depth] = Frame::new(kind);
-        self.depth += 1;
-        Ok(())
-    }
-
-    fn end_container(&mut self, kind: FrameKind, close: u8) -> Result<()> {
-        if self.depth == 0 {
-            return Err(Error::NestMismatch);
-        }
-        let frame = self.stack[self.depth - 1];
-        if frame.kind != kind || frame.expecting_value {
-            return Err(Error::NestMismatch);
-        }
-        self.depth -= 1;
-        self.write_byte(close)
-    }
-
-    fn before_value(&mut self) -> Result<()> {
-        if self.depth == 0 {
-            if self.root_written {
-                return Err(Error::BadSerialize);
+    let frame = &mut serializer.stack[serializer.depth - 1];
+    match frame.kind {
+        FrameKind::Array => {
+            if !frame.first {
+                write_byte(serializer, b',')?;
             }
-            self.root_written = true;
-            return Ok(());
+            serializer.stack[serializer.depth - 1].first = false;
+            Ok(())
         }
+        FrameKind::Object if frame.expecting_value => {
+            serializer.stack[serializer.depth - 1].expecting_value = false;
+            Ok(())
+        }
+        FrameKind::Object => Err(Error::BadSerialize),
+    }
+}
 
-        let frame = &mut self.stack[self.depth - 1];
-        match frame.kind {
-            FrameKind::Array => {
-                if !frame.first {
-                    self.write_byte(b',')?;
-                }
-                self.stack[self.depth - 1].first = false;
-                Ok(())
+#[inline]
+fn current_frame_mut<'s, 'out, const DEPTH: usize>(
+    serializer: &'s mut JsonSerializer<'out, DEPTH>,
+) -> Result<&'s mut Frame> {
+    if serializer.depth == 0 {
+        Err(Error::BadSerialize)
+    } else {
+        Ok(&mut serializer.stack[serializer.depth - 1])
+    }
+}
+
+fn write_value_str<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    value: &str,
+) -> Result<()> {
+    before_value(serializer)?;
+    write_raw_str(serializer, value)
+}
+
+fn write_display<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    value: impl fmt::Display,
+) -> Result<()> {
+    before_value(serializer)?;
+    write!(serializer, "{value}").map_err(|_| Error::WriteLong)
+}
+
+fn write_quoted<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    value: &str,
+) -> Result<()> {
+    write_byte(serializer, b'"')?;
+    for ch in value.chars() {
+        match ch {
+            '"' => write_raw_str(serializer, "\\\"")?,
+            '\\' => write_raw_str(serializer, "\\\\")?,
+            '\u{08}' => write_raw_str(serializer, "\\b")?,
+            '\u{0c}' => write_raw_str(serializer, "\\f")?,
+            '\n' => write_raw_str(serializer, "\\n")?,
+            '\r' => write_raw_str(serializer, "\\r")?,
+            '\t' => write_raw_str(serializer, "\\t")?,
+            '\u{00}'..='\u{1f}' => {
+                write_raw_str(serializer, "\\u00")?;
+                write_hex_digit(serializer, (ch as u8) >> 4)?;
+                write_hex_digit(serializer, ch as u8)?;
             }
-            FrameKind::Object if frame.expecting_value => {
-                self.stack[self.depth - 1].expecting_value = false;
-                Ok(())
-            }
-            FrameKind::Object => Err(Error::BadSerialize),
+            _ => write_raw_str(serializer, ch.encode_utf8(&mut [0; 4]))?,
         }
     }
+    write_byte(serializer, b'"')
+}
 
-    #[inline]
-    fn current_frame_mut(&mut self) -> Result<&mut Frame> {
-        if self.depth == 0 {
-            Err(Error::BadSerialize)
-        } else {
-            Ok(&mut self.stack[self.depth - 1])
-        }
-    }
+#[inline]
+fn write_hex_digit<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    value: u8,
+) -> Result<()> {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    write_byte(serializer, HEX[(value & 0x0f) as usize])
+}
 
-    fn write_value_str(&mut self, value: &str) -> Result<()> {
-        self.before_value()?;
-        self.write_str(value)
+#[inline]
+fn write_byte<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    byte: u8,
+) -> Result<()> {
+    if serializer.len == serializer.out.len() {
+        return Err(Error::WriteLong);
     }
+    serializer.out[serializer.len] = byte;
+    serializer.len += 1;
+    Ok(())
+}
 
-    fn write_display(&mut self, value: impl fmt::Display) -> Result<()> {
-        self.before_value()?;
-        write!(self, "{value}").map_err(|_| Error::WriteLong)
+#[inline]
+fn write_raw_str<const DEPTH: usize>(
+    serializer: &mut JsonSerializer<'_, DEPTH>,
+    value: &str,
+) -> Result<()> {
+    if serializer.out.len() - serializer.len < value.len() {
+        return Err(Error::WriteLong);
     }
-
-    fn write_quoted(&mut self, value: &str) -> Result<()> {
-        self.write_byte(b'"')?;
-        for ch in value.chars() {
-            match ch {
-                '"' => self.write_str("\\\"")?,
-                '\\' => self.write_str("\\\\")?,
-                '\u{08}' => self.write_str("\\b")?,
-                '\u{0c}' => self.write_str("\\f")?,
-                '\n' => self.write_str("\\n")?,
-                '\r' => self.write_str("\\r")?,
-                '\t' => self.write_str("\\t")?,
-                '\u{00}'..='\u{1f}' => {
-                    self.write_str("\\u00")?;
-                    self.write_hex_digit((ch as u8) >> 4)?;
-                    self.write_hex_digit(ch as u8)?;
-                }
-                _ => self.write_str(ch.encode_utf8(&mut [0; 4]))?,
-            }
-        }
-        self.write_byte(b'"')
-    }
-
-    #[inline]
-    fn write_hex_digit(&mut self, value: u8) -> Result<()> {
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-        self.write_byte(HEX[(value & 0x0f) as usize])
-    }
-
-    #[inline]
-    fn write_byte(&mut self, byte: u8) -> Result<()> {
-        if self.len == self.out.len() {
-            return Err(Error::WriteLong);
-        }
-        self.out[self.len] = byte;
-        self.len += 1;
-        Ok(())
-    }
-
-    #[inline]
-    fn write_str(&mut self, value: &str) -> Result<()> {
-        if self.out.len() - self.len < value.len() {
-            return Err(Error::WriteLong);
-        }
-        self.out[self.len..self.len + value.len()].copy_from_slice(value.as_bytes());
-        self.len += value.len();
-        Ok(())
-    }
+    serializer.out[serializer.len..serializer.len + value.len()].copy_from_slice(value.as_bytes());
+    serializer.len += value.len();
+    Ok(())
 }
 
 impl<const DEPTH: usize> fmt::Write for JsonSerializer<'_, DEPTH> {
     #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        JsonSerializer::write_str(self, s).map_err(|_| fmt::Error)
+        write_raw_str(self, s).map_err(|_| fmt::Error)
     }
 }
 

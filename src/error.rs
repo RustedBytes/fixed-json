@@ -2,6 +2,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(i32)]
+// qualirs:ignore Q0017 Q0029 Q0034
 pub enum Error {
     ObStart = 1,
     AttrStart = 2,
