@@ -11,10 +11,26 @@ pub use model::{
     TargetBool, TargetChar, TargetF64, TargetI16, TargetI32, TargetU16, TargetU32,
 };
 
+mod number {
+    #![allow(dead_code)]
+
+    include!("../src/number.rs");
+}
+
+mod validator {
+    #![allow(dead_code)]
+
+    include!("../src/validator.rs");
+}
+
 mod parser {
     #![allow(dead_code)]
 
     include!("../src/parser.rs");
+
+    pub(crate) use crate::number::*;
+    pub(crate) use crate::validator::JsonValidator;
+    pub(crate) use crate::validator::validate_json;
 
     #[allow(clippy::drop_non_drop)]
     mod tests {

@@ -116,7 +116,9 @@ impl<'a> Attr<'a> {
     pub fn ushorts(name: &'a str, target: &'a mut [u16]) -> Self {
         Self::new(name, AttrKind::UShort(TargetU16::Many(target)))
     }
+}
 
+impl<'a> Attr<'a> {
     #[inline]
     pub fn real(name: &'a str, target: &'a mut f64) -> Self {
         Self::new(name, AttrKind::Real(TargetF64::One(target)))
@@ -151,7 +153,9 @@ impl<'a> Attr<'a> {
     pub fn characters(name: &'a str, target: &'a mut [u8]) -> Self {
         Self::new(name, AttrKind::Character(TargetChar::Many(target)))
     }
+}
 
+impl<'a> Attr<'a> {
     #[inline]
     pub fn time(name: &'a str, target: &'a mut f64) -> Self {
         Self::new(name, AttrKind::Time(TargetF64::One(target)))

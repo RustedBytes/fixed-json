@@ -65,7 +65,9 @@ impl<'input, 'a, const N: usize> ObjectBuilder<'input, 'a, N> {
     pub fn ushorts(self, name: &'a str, target: &'a mut [u16]) -> Self {
         self.attr(Attr::ushorts(name, target))
     }
+}
 
+impl<'input, 'a, const N: usize> ObjectBuilder<'input, 'a, N> {
     #[inline]
     pub fn real(self, name: &'a str, target: &'a mut f64) -> Self {
         self.attr(Attr::real(name, target))
@@ -100,7 +102,9 @@ impl<'input, 'a, const N: usize> ObjectBuilder<'input, 'a, N> {
     pub fn characters(self, name: &'a str, target: &'a mut [u8]) -> Self {
         self.attr(Attr::characters(name, target))
     }
+}
 
+impl<'input, 'a, const N: usize> ObjectBuilder<'input, 'a, N> {
     #[inline]
     pub fn time(self, name: &'a str, target: &'a mut f64) -> Self {
         self.attr(Attr::time(name, target))

@@ -24,11 +24,8 @@ const VALIDATOR_STRING_ESCAPES: &[u8] =
     br#""simple text with escapes: \" \\ \/ \b \f \n \r \t \u0041 \u20ac""#;
 
 #[inline]
-fn validate_json_or_panic(input: &[u8]) -> usize {
-    match validate_json(input) {
-        Ok(end) => end,
-        Err(err) => panic!("valid benchmark JSON failed validation: {err:?}"),
-    }
+fn validate_json_ok(input: &[u8]) -> bool {
+    validate_json(input).is_ok()
 }
 
 #[derive(Clone, Copy)]
@@ -247,30 +244,29 @@ fn bench_structobject_callback(c: &mut Criterion) {
 fn bench_validate_json(c: &mut Criterion) {
     c.bench_function("validate/basic object", |b| {
         b.iter(|| {
-            let end =
-                validate_json_or_panic(black_box(br#"{"count":23,"flag1":true,"flag2":false}"#));
-            black_box(end);
+            let valid = validate_json_ok(black_box(br#"{"count":23,"flag1":true,"flag2":false}"#));
+            black_box(valid);
         });
     });
 
     c.bench_function("validate/sky object", |b| {
         b.iter(|| {
-            let end = validate_json_or_panic(black_box(SKY.as_bytes()));
-            black_box(end);
+            let valid = validate_json_ok(black_box(SKY.as_bytes()));
+            black_box(valid);
         });
     });
 
     c.bench_function("validate/mixed array", |b| {
         b.iter(|| {
-            let end = validate_json_or_panic(black_box(VALIDATOR_MIXED));
-            black_box(end);
+            let valid = validate_json_ok(black_box(VALIDATOR_MIXED));
+            black_box(valid);
         });
     });
 
     c.bench_function("validate/string escapes", |b| {
         b.iter(|| {
-            let end = validate_json_or_panic(black_box(VALIDATOR_STRING_ESCAPES));
-            black_box(end);
+            let valid = validate_json_ok(black_box(VALIDATOR_STRING_ESCAPES));
+            black_box(valid);
         });
     });
 

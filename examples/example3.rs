@@ -1,4 +1,4 @@
-use fixed_json::{Array, ObjectBuilder, cstr, error_string};
+use fixed_json::{Array, Attr, cstr, error_string, read_object};
 
 const MAXUSERDEVS: usize = 4;
 const PATH_MAX: usize = 4096;
@@ -23,32 +23,40 @@ struct DevList {
     list: [DevConfig; MAXUSERDEVS],
 }
 
+impl DevList {
+    fn new() -> Self {
+        Self {
+            ndevices: 0,
+            list: [DevConfig::new(); MAXUSERDEVS],
+        }
+    }
+}
+
 fn main() {
     let input = std::env::args().nth(1).expect("usage: example3 JSON");
-    let mut devicelist = DevList {
-        ndevices: 0,
-        list: [DevConfig::new(); MAXUSERDEVS],
-    };
+    let mut devicelist = DevList::new();
 
     let mut parse_device = |s: &str, index: usize| {
         let dev = &mut devicelist.list[index];
-        ObjectBuilder::<2>::new(s)
-            .string("path", &mut dev.path)
-            .real("activated", &mut dev.activated)
-            .read()
+        let mut attrs = [
+            Attr::string("path", &mut dev.path),
+            Attr::real("activated", &mut dev.activated),
+        ];
+        read_object(s, &mut attrs)
     };
 
-    let status = ObjectBuilder::<2>::new(&input)
-        .check("class", "DEVICES")
-        .array(
+    let mut attrs = [
+        Attr::check("class", "DEVICES"),
+        Attr::array(
             "devices",
             Array::StructObjects {
                 maxlen: MAXUSERDEVS,
                 count: Some(&mut devicelist.ndevices),
                 parser: &mut parse_device,
             },
-        )
-        .read();
+        ),
+    ];
+    let status = read_object(&input, &mut attrs);
 
     println!("{} devices:", devicelist.ndevices);
     for dev in &devicelist.list[..devicelist.ndevices] {

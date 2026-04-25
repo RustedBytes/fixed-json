@@ -11,9 +11,9 @@ ignore_findings = []
 min_severity = "warning"
 
 [thresholds.arch]
-god_module_loc = 2000
-god_module_items = 60
-public_api_ratio = 0.7
+god_module_loc = 1000
+god_module_items = 30
+public_api_ratio = 0.85
 feature_concentration = 15
 hidden_global_state = 3
 
@@ -22,7 +22,7 @@ large_trait_methods = 15
 excessive_generics = 5
 deep_trait_bounds = 4
 wide_hierarchy = 26
-fat_impl_methods = 25
+fat_impl_methods = 20
 god_struct_fields = 20
 primitive_obsession_fields = 4
 data_clumps_args = 3
